@@ -1,1 +1,0 @@
-cmd_/home/christopher/Desktop/STEP/copy/task2/usbtemp.mod := printf '%s\n'   usbtemp.o | awk '!x[$$0]++ { print("/home/christopher/Desktop/STEP/copy/task2/"$$0) }' > /home/christopher/Desktop/STEP/copy/task2/usbtemp.mod
