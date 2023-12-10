@@ -1,0 +1,8 @@
+Makefile  
+modules.order  
+Module.symvers 
+usbtemp.ko
+usbtemp.mod 
+usbtemp.mod.c  
+usbtemp.mod.o  
+usbtemp.o
