@@ -1,6 +1,5 @@
 # STEP
 ## Todos  
-- Race condition
 - have more than 9 posible probes  
 -> helper functions for:  
 --> str to int  
@@ -9,6 +8,7 @@
 - Python script to read and graph the tempeture
 ## To Test
 - functionality to rescan and restart
+- Race condition
 ## Bugs  
 - tempeturesensor doesn't give the real temp
 - only one probe found
