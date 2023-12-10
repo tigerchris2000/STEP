@@ -1,1 +1,0 @@
-cmd_/home/christopher/Desktop/STEP/copy/task2/Module.symvers :=  sed 's/ko$$/o/'  /home/christopher/Desktop/STEP/copy/task2/modules.order | scripts/mod/modpost   -E   -o /home/christopher/Desktop/STEP/copy/task2/Module.symvers -e -i Module.symvers -T - 
