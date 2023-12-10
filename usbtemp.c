@@ -332,6 +332,7 @@ static ssize_t show(struct device *dev, struct device_attribute *attr,char *buf)
     struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
     // In case of a rescan
     if(usb_message_rescan_status(usb_dev) != 1){
+        pr_info("still scanning\n");
         return 0;
     }
 
