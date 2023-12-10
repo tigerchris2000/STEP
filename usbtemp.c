@@ -114,7 +114,7 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
         name[3] = 'b'; 
         name[4] = 'e'; 
         // only works for values 0-9 need to implement function to generate string from integer
-        name[6] = (char)(i + 0x30);  
+        name[6] = (char)(i-1 + 0x30);  
         name[7] = '\0'; 
         atr -> attr.name = name;
         atr -> attr.mode = S_IWUSR | S_IRUGO;
@@ -132,18 +132,16 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
         }
     }
     // General Device Setup
-    struct device_attribute* atr = kmalloc(sizeof(device_attribute), GFP_KERNEL);
-    atr -> attr = {
-            .name = "usb_temp",
-            .mode = S_IWUSR | S_IRUGO
-    };
+    struct device_attribute* atr = kmalloc(sizeof(struct device_attribute), GFP_KERNEL);
+    atr -> attr.name = "usb_temp";
+    atr -> attr.mode = S_IWUSR | S_IRUGO;
     atr -> show = &show_main;
     atr -> store = &store_main;
-    int error = device_create_file(&(interface->dev), &atr);
+    int error = device_create_file(&(interface->dev), atr);
     if(error){
         pr_info("failed %d\n",error);
         kfree(atr);
-        data -> device_attributes[i] = NULL;
+        data -> device_attributes[0] = NULL;
     }else{
         data -> device_attributes[0] = atr;
     }
@@ -358,9 +356,9 @@ static ssize_t show_main(struct device *dev, struct device_attribute *attr,char 
     struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
 
     if( usb_message_rescan_status(usb_dev) == 1){
-        pr_info("Rescan done");
+        pr_info("Rescan done\n");
     }else{
-        pr_info("Rescan not done");
+        pr_info("Rescan not done\n");
     }
     return 0;
 }
