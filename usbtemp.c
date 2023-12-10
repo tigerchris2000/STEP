@@ -174,12 +174,9 @@ static uint8_t usb_message_long(struct usb_device* dev, uint8_t possible_probes,
     __u8 request = 3;
     __u16 value = 0;
     __u16 index = 0;
-   // struct probe_status* data = kmalloc(sizeof(struct probe_status) * possible_probes, GFP_KERNEL);
-    // __u16 size = sizeof(sizeof(struct probe_status)  * possible_probes);
-    struct probe_status* data = kmalloc(sizeof(struct probe_status), GFP_KERNEL);
-    __u16 size = sizeof(sizeof(struct probe_status));
+    struct probe_status* data = kmalloc(sizeof(struct probe_status) * possible_probes, GFP_KERNEL);
+     __u16 size = sizeof(sizeof(struct probe_status)  * possible_probes);
     int timeout = 1000;
-    //usb_sndctrlpipe(dev,0)
     int error = usb_control_msg(dev,usb_rcvctrlpipe(dev,0), request, 0xc0, value,index, data, size, timeout);
     uint8_t count = -1;
     if(error < 0)
@@ -191,7 +188,6 @@ static uint8_t usb_message_long(struct usb_device* dev, uint8_t possible_probes,
         // Finding all probes
         if (type == -1)
         {
-            /*
             count = 0;
             // finding the amount of existing probes
             for(int i = 0; i < possible_probes; i++){
@@ -200,8 +196,6 @@ static uint8_t usb_message_long(struct usb_device* dev, uint8_t possible_probes,
                     count++;
                 }
             } 
-            */
-            count = 1;
         }
         // Read from one probe
         else{
@@ -336,6 +330,10 @@ static ssize_t show(struct device *dev, struct device_attribute *attr,char *buf)
     struct usb_interface* usb_inter;
     usb_inter = to_usb_interface(dev); //struct usb_device* usb_dev = usb_get_dev(usb_inter);
     struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
+    // In case of a rescan
+    if(usb_message_rescan_status(usb_dev) != 1){
+        return 0;
+    }
 
     // Read probe pos from name
     int probe_pos = (int)attr -> attr.name[5] - 0x30; 
