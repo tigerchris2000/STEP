@@ -91,9 +91,11 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
     pr_info("call rescan\n");
     // usb_message_rescan(usb_dev);
     pr_info("call rescan status\n");
+        /*
     while(usb_message_rescan_status(usb_dev) != 1){
         pr_info("waiting \n");
     }
+    */
     // Get the amount of real probes
     pr_info("call long\n");
     uint8_t real_probes = usb_message_long(usb_dev, possible_probes,-1); 
@@ -372,9 +374,7 @@ static ssize_t store_main(struct device *dev, struct device_attribute *attr,cons
     if(buf[0] == '1')
     {
         // Rescan
-        deactivate_sysfs(usb_inter);
         usb_message_rescan(usb_dev);
-        setup_sysfs(usb_dev,usb_inter);
         return count;
     }
     if(buf[0] == '2')
