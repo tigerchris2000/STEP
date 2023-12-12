@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import sys
 import time
 
@@ -9,16 +8,16 @@ if len(sys.argv) != 3:
 
 
 file_location = sys.argv[1] + "probe" + sys.argv[2]
-file = open(file_location, "r")
+data = open("data.txt","w")
 
-time = 0
-times = []
-temps = []
-while True:
+tracker = 0
+
+for i in range(10):
+    file = open(file_location, "r")
     line = file.readline()
-    value = float(line)
-    time.append(time)
-    temps.append(value)
-    plt.plot(times, temps)
     time.sleep(0.5)
-    time = time + 0.5
+    tracker = tracker + 0.5
+    data.write(str(tracker) + " " + line);
+    file.close()
+
+data.close()
