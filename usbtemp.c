@@ -16,6 +16,10 @@
  *
  */
 
+struct temp{
+    uint8_t full;
+    uint8_t decimal;
+};
 // For attr storage
 struct usb_interface_data{
     uint8_t probe_count;
@@ -51,12 +55,12 @@ struct rescan_reply {
  * Function declarations
  *
  */
-static void print_temp(uint8_t low, uint8_t high);
+static void print_temp(uint8_t low, uint8_t high,struct temp* storage);
 static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interface);
 static void deactivate_sysfs(struct usb_interface* interface);
 
 static uint8_t usb_message_short(struct usb_device* dev);
-static uint8_t usb_message_long(struct usb_device* dev, uint8_t possible_probes, int type);
+static uint8_t usb_message_long(struct usb_device* dev, uint8_t possible_probes, int type,struct temp* storage);
 static void usb_message_reset(struct usb_device* dev);
 static int usb_message_rescan_status(struct usb_device* dev);
 static void usb_message_rescan(struct usb_device* dev);
@@ -78,7 +82,7 @@ static void add_new_probes(struct usb_device* usb_dev, struct usb_interface* int
  *
  */
 
-static void print_temp(uint8_t low, uint8_t high){
+static void print_temp(uint8_t low, uint8_t high, struct temp* storage){
         int temperature = low + (high << 8);
         if(0x800 & temperature){
            temperature = temperature || 0xFFFFF000;
@@ -86,6 +90,8 @@ static void print_temp(uint8_t low, uint8_t high){
         int val = temperature / 4;
         temperature = temperature / 16;
         val = val * (temperature*4);
+        storage -> full = temperature;
+        storage -> decimal = val;
         pr_info("Temp:  %d %d \n", temperature,val);
 }
 
@@ -102,7 +108,7 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
     }
     // Get the amount of real probes
     pr_info("call long\n");
-    uint8_t real_probes = usb_message_long(usb_dev, possible_probes,-1); 
+    uint8_t real_probes = usb_message_long(usb_dev, possible_probes,-1, NULL); 
     // Generate file for every real probe
     pr_info("make files: wiht %d probes\n",real_probes);
     // Setup data for usb interface
@@ -217,7 +223,7 @@ static void add_new_probes(struct usb_device* usb_dev, struct usb_interface* int
     while(usb_message_rescan_status(usb_dev) != 1);
     // Get the amount of real probes
     pr_info("call long\n");
-    uint8_t real_probes = usb_message_long(usb_dev, possible_probes,-1); 
+    uint8_t real_probes = usb_message_long(usb_dev, possible_probes,-1, NULL); 
     // Generate file for every real probe
     pr_info("make files: wiht %d probes\n",real_probes);
     // Setup data for usb interface
@@ -265,7 +271,7 @@ static void add_new_probes(struct usb_device* usb_dev, struct usb_interface* int
  * Other Stuff
  *
  */
-static uint8_t usb_message_long(struct usb_device* dev, uint8_t possible_probes, int type)
+static uint8_t usb_message_long(struct usb_device* dev, uint8_t possible_probes, int type, struct temp* storage)
 {
     __u8 request = 3;
     __u16 value = 0;
@@ -296,7 +302,7 @@ static uint8_t usb_message_long(struct usb_device* dev, uint8_t possible_probes,
         }
         // Read from one probe
         else{
-            print_temp(data[type].temperature[0], data[type].temperature[1]);
+            print_temp(data[type].temperature[0], data[type].temperature[1], storage);
         }
     }
     kfree(data);
@@ -415,8 +421,9 @@ static ssize_t show(struct device *dev, struct device_attribute *attr,char *buf)
     }
     int probe_count = usb_message_short(usb_dev); 
     pr_info("value: %d", (int)probe_pos);
-    usb_message_long(usb_dev, probe_count, probe_pos);
-    return 0;
+    struct temp t= {};
+    usb_message_long(usb_dev, probe_count, probe_pos, &t);
+    return sysfs_emit(buf,"%d.%d\n",t.full,t.decimal);
 }
 
 static ssize_t store(struct device *dev, struct device_attribute *attr,const char* buf,size_t count)
