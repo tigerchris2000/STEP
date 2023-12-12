@@ -50,8 +50,6 @@ struct rescan_reply {
  * Function declarations
  *
  */
-
-
 static void print_temp(uint8_t low, uint8_t high);
 static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interface);
 static void deactivate_sysfs(struct usb_interface* interface);
@@ -78,6 +76,7 @@ static void add_new_probes(struct usb_device* usb_dev, struct usb_interface* int
  * Helper Functions
  *
  */
+
 static void print_temp(uint8_t low, uint8_t high){
         int temperature = low + (high << 8);
         if(0x800 & temperature){
@@ -397,9 +396,16 @@ static ssize_t show(struct device *dev, struct device_attribute *attr,char *buf)
     usb_inter = to_usb_interface(dev); //struct usb_device* usb_dev = usb_get_dev(usb_inter);
     struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
     // Read probe pos from name
-    int probe_pos = (int)attr -> attr.name[5] - 0x30; 
+    //int probe_pos = (int)attr -> attr.name[5] - 0x30; 
+    long probe_pos;
+    int error = kstrtol( &(attr -> attr.name[5]), 10, &probe_pos);
+    if(error)
+    {
+        pr_info("kstrol error \n");
+        return 0;
+    }
     int probe_count = usb_message_short(usb_dev); 
-    pr_info("value: %d",probe_pos);
+    pr_info("value: %d", (int)probe_pos);
     usb_message_long(usb_dev, probe_count, probe_pos);
     return 0;
 }
