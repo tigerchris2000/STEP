@@ -533,7 +533,15 @@ static ssize_t show_rescan(struct device *dev, struct device_attribute *attr,cha
     struct usb_interface* usb_inter;
     usb_inter = to_usb_interface(dev); 
     struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
-    return usb_message_rescan_status(usb_dev);
+    if(usb_message_rescan_status(usb_dev) == 1)
+    {
+        return sysfs_emit(buf,"scan done\n");
+    }
+    else
+    {
+        return sysfs_emit(buf,"scan not done\n");
+    }
+
 }
 
 static ssize_t store_rescan(struct device *dev, struct device_attribute *attr,const char* buf,size_t count)
