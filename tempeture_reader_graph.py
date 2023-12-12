@@ -1,7 +1,9 @@
+import sys
 import matplotlib.pyplot as plt
+
 xs = []
 ys = []
-with open("data.txt", "r") as f:
+with open(sys.argv[1], "r") as f:
     lines = f.readlines()
     for l in lines:
         x = l.split(" ")[0]
