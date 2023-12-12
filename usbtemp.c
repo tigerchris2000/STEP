@@ -71,6 +71,8 @@ static ssize_t store_rescan(struct device *dev, struct device_attribute *attr,co
 static ssize_t show_restart(struct device *dev, struct device_attribute *attr,char *buf);
 static ssize_t store_restart(struct device *dev, struct device_attribute *attr,const char* buf,size_t count);
 
+static void delete_old_probes(struct usb_interface* interface);
+static void add_new_probes(struct usb_device* usb_dev, struct usb_interface* interface);
 /*
  *
  * Helper Functions
@@ -118,7 +120,7 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
         name[3] = 'b'; 
         name[4] = 'e'; 
         // only works for values 0-9 need to implement function to generate string from integer
-        name[5] = (char)(i-1 + 0x30);  
+        name[5] = (char)(i-2 + 0x30);  
         name[6] = '\0'; 
         atr -> attr.name = name;
         atr -> attr.mode = S_IWUSR | S_IRUGO;
@@ -153,9 +155,9 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
     atr = kmalloc(sizeof(struct device_attribute), GFP_KERNEL);
     atr -> attr.name = "temp_restart";
     atr -> attr.mode = S_IWUSR | S_IRUGO;
-    atr -> show = &show_main;
-    atr -> store = &store_main;
-    int error = device_create_file(&(interface->dev), atr);
+    atr -> show = &show_restart;
+    atr -> store = &store_restart;
+    error = device_create_file(&(interface->dev), atr);
     if(error){
         pr_info("failed %d\n",error);
         kfree(atr);
@@ -166,23 +168,88 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
     usb_set_intfdata(interface,data);
 }
 
-static void deactivate_sysfs(struct usb_interface* interface){
-       struct usb_interface_data* data = usb_get_intfdata(interface); 
-       for(int i = 2; i <= data + 1 -> probe_count; i++){
-           if(data -> device_attributes[i] != NULL)
-           {
-               device_remove_file(&(interface->dev), data -> device_attributes[i]);
-               kfree(data -> device_attributes[i] -> attr.name);
-               kfree(data -> device_attributes[i]);
-           } 
-       }
-       // Clean up Rescan & restart
-       device_remove_file(&(interface->dev), data -> device_attributes[0]);
-       device_remove_file(&(interface->dev), data -> device_attributes[1]);
-       kfree(data -> device_attributes[0]);
-       kfree(data -> device_attributes[1]);
-       kfree(data -> device_attributes);
-       kfree(data);
+static void deactivate_sysfs(struct usb_interface* interface) {
+    struct usb_interface_data* data = usb_get_intfdata(interface); 
+    for(int i = 2; i <= (data -> probe_count) + 1; i++){
+        if(data -> device_attributes[i] != NULL)
+        {
+            device_remove_file(&(interface->dev), data -> device_attributes[i]);
+            kfree(data -> device_attributes[i] -> attr.name);
+            kfree(data -> device_attributes[i]);
+        } 
+    }
+    // Clean up Rescan & restart
+    device_remove_file(&(interface->dev), data -> device_attributes[0]);
+    device_remove_file(&(interface->dev), data -> device_attributes[1]);
+    kfree(data -> device_attributes[0]);
+    kfree(data -> device_attributes[1]);
+    kfree(data -> device_attributes);
+    kfree(data);
+}
+
+static void delete_old_probes(struct usb_interface* interface){
+    struct usb_interface_data* data = usb_get_intfdata(interface); 
+    for(int i = 2; i <= (data -> probe_count) + 1; i++){
+        if(data -> device_attributes[i] != NULL)
+        {
+            device_remove_file(&(interface->dev), data -> device_attributes[i]);
+            kfree(data -> device_attributes[i] -> attr.name);
+            kfree(data -> device_attributes[i]);
+        } 
+    }
+}
+
+static void add_new_probes(struct usb_device* usb_dev, struct usb_interface* interface)
+{
+    // Get all possiple probes
+    pr_info("call short\n");
+    uint8_t possible_probes = usb_message_short(usb_dev); 
+    // Wait for rescan
+    pr_info("call rescan status\n");
+    while(usb_message_rescan_status(usb_dev) != 1);
+    // Get the amount of real probes
+    pr_info("call long\n");
+    uint8_t real_probes = usb_message_long(usb_dev, possible_probes,-1); 
+    // Generate file for every real probe
+    pr_info("make files: wiht %d probes\n",real_probes);
+    // Setup data for usb interface
+    struct usb_interface_data* data = kmalloc(sizeof(struct usb_interface_data), GFP_KERNEL);
+    data -> probe_count = real_probes;
+    data -> device_attributes = kmalloc(sizeof(struct device_attribute*)*(real_probes+2), GFP_KERNEL);
+    // Generate file for the general USB device
+    for(int i = 2; i <= real_probes + 1; i++){
+        // both need to be freed
+        struct device_attribute* atr = kmalloc(sizeof(struct device_attribute), GFP_KERNEL) ;
+        char* name = kmalloc(7, GFP_KERNEL); //probe X\0 
+        name[0] = 'p'; 
+        name[1] = 'r'; 
+        name[2] = 'o'; 
+        name[3] = 'b'; 
+        name[4] = 'e'; 
+        // only works for values 0-9 need to implement function to generate string from integer
+        name[5] = (char)(i-2 + 0x30);  
+        name[6] = '\0'; 
+        atr -> attr.name = name;
+        atr -> attr.mode = S_IWUSR | S_IRUGO;
+        atr -> show = &show; 
+        atr -> store = &store; 
+        int error = device_create_file(&(interface->dev), atr);
+        if(error){
+            pr_info("failed %d\n",error);
+            kfree(name);
+            kfree(atr);
+            data -> device_attributes[i] = NULL;
+        }else{
+            pr_info("succsess %s\n",name);
+            data -> device_attributes[i] = atr;
+        }
+    }
+    // General Device Setup
+    struct usb_interface_data* old_data = usb_get_intfdata(interface);
+    data -> device_attributes[0] = old_data -> device_attributes[0];
+    data -> device_attributes[1] = old_data -> device_attributes[1];
+    kfree(old_data);
+    usb_set_intfdata(interface,data);
 }
 
 /*
@@ -265,7 +332,7 @@ static void usb_message_reset(struct usb_device* dev)
 
     __u16 size = sizeof(*data);
     int timeout = 1000;
-    int error = usb_control_msg(dev,usb_sndctrlpipe(dev,0), request, 0xc0, value,index, data, size, timeout); 
+    int error = usb_control_msg(dev,usb_rcvctrlpipe(dev,0), request, 0xc0, value,index, data, size, timeout); 
     if (error < 0)
     {
         pr_info("error %d\n",error);
@@ -361,7 +428,12 @@ static ssize_t store_rescan(struct device *dev, struct device_attribute *attr,co
     struct usb_interface* usb_inter;
     usb_inter = to_usb_interface(dev); 
     struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
+    pr_info("Start Resan \n");
     usb_message_rescan(usb_dev);
+    pr_info("Remove files \n");
+    delete_old_probes(usb_inter);
+    pr_info("Add files\n");
+    add_new_probes(usb_dev, usb_inter);
     return count;
 }
 
