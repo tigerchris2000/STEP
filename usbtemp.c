@@ -65,8 +65,12 @@ static void usb_message_rescan(struct usb_device* dev);
 static ssize_t show(struct device *dev, struct device_attribute *attr,char *buf);
 static ssize_t store(struct device *dev, struct device_attribute *attr,const char* buf,size_t count);
 
-static ssize_t show_main(struct device *dev, struct device_attribute *attr,char *buf);
-static ssize_t store_main(struct device *dev, struct device_attribute *attr,const char* buf,size_t count);
+static ssize_t show_rescan(struct device *dev, struct device_attribute *attr,char *buf);
+static ssize_t store_rescan(struct device *dev, struct device_attribute *attr,const char* buf,size_t count);
+
+static ssize_t show_restart(struct device *dev, struct device_attribute *attr,char *buf);
+static ssize_t store_restart(struct device *dev, struct device_attribute *attr,const char* buf,size_t count);
+
 /*
  *
  * Helper Functions
@@ -102,9 +106,9 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
     // Setup data for usb interface
     struct usb_interface_data* data = kmalloc(sizeof(struct usb_interface_data), GFP_KERNEL);
     data -> probe_count = real_probes;
-    data -> device_attributes = kmalloc(sizeof(struct device_attribute*)*(real_probes+1), GFP_KERNEL);
+    data -> device_attributes = kmalloc(sizeof(struct device_attribute*)*(real_probes+2), GFP_KERNEL);
     // Generate file for the general USB device
-    for(int i = 1; i <= real_probes; i++){
+    for(int i = 2; i <= real_probes + 1; i++){
         // both need to be freed
         struct device_attribute* atr = kmalloc(sizeof(struct device_attribute), GFP_KERNEL) ;
         char* name = kmalloc(7, GFP_KERNEL); //probe X\0 
@@ -133,10 +137,10 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
     }
     // General Device Setup
     struct device_attribute* atr = kmalloc(sizeof(struct device_attribute), GFP_KERNEL);
-    atr -> attr.name = "usb_temp";
+    atr -> attr.name = "temp_rescan";
     atr -> attr.mode = S_IWUSR | S_IRUGO;
-    atr -> show = &show_main;
-    atr -> store = &store_main;
+    atr -> show = &show_rescan;
+    atr -> store = &store_rescan;
     int error = device_create_file(&(interface->dev), atr);
     if(error){
         pr_info("failed %d\n",error);
@@ -145,12 +149,26 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
     }else{
         data -> device_attributes[0] = atr;
     }
+
+    atr = kmalloc(sizeof(struct device_attribute), GFP_KERNEL);
+    atr -> attr.name = "temp_restart";
+    atr -> attr.mode = S_IWUSR | S_IRUGO;
+    atr -> show = &show_main;
+    atr -> store = &store_main;
+    int error = device_create_file(&(interface->dev), atr);
+    if(error){
+        pr_info("failed %d\n",error);
+        kfree(atr);
+        data -> device_attributes[1] = NULL;
+    }else{
+        data -> device_attributes[1] = atr;
+    }
     usb_set_intfdata(interface,data);
 }
 
 static void deactivate_sysfs(struct usb_interface* interface){
        struct usb_interface_data* data = usb_get_intfdata(interface); 
-       for(int i = 1; i <= data -> probe_count; i++){
+       for(int i = 2; i <= data + 1 -> probe_count; i++){
            if(data -> device_attributes[i] != NULL)
            {
                device_remove_file(&(interface->dev), data -> device_attributes[i]);
@@ -158,8 +176,11 @@ static void deactivate_sysfs(struct usb_interface* interface){
                kfree(data -> device_attributes[i]);
            } 
        }
+       // Clean up Rescan & restart
        device_remove_file(&(interface->dev), data -> device_attributes[0]);
+       device_remove_file(&(interface->dev), data -> device_attributes[1]);
        kfree(data -> device_attributes[0]);
+       kfree(data -> device_attributes[1]);
        kfree(data -> device_attributes);
        kfree(data);
 }
@@ -200,29 +221,7 @@ static uint8_t usb_message_long(struct usb_device* dev, uint8_t possible_probes,
         }
         // Read from one probe
         else{
-            // Should work have no idea why not anymore ????
             print_temp(data[type].temperature[0], data[type].temperature[1]);
-            pr_info("Type: %d\n", type);
-
-            /*
-            for(int i = 0; i < possible_probes; i++){
-                pr_info("flags %d \n", data[i].flags);
-                if(data[i].flags == 0x01){
-                    int temperature = data[i].temperature[0] + (data[i].temperature[1] << 8);
-                    /*
-                    if(0x800 & temperature){
-                        temperature = temperature || 0xFFFFF000;
-                    }
-                    int val = temperature / 4;
-                    temperature = temperature / 16;
-                    val = val * (temperature*4);
-                    */
-            /*
-                    pr_info("Real Temp: %d\n", temperature);
-                }
-            } 
-            */
-
         }
     }
     kfree(data);
@@ -349,40 +348,34 @@ static ssize_t store(struct device *dev, struct device_attribute *attr,const cha
     return count;
 }
 
-static ssize_t show_main(struct device *dev, struct device_attribute *attr,char *buf)
+static ssize_t show_rescan(struct device *dev, struct device_attribute *attr,char *buf)
 {
     struct usb_interface* usb_inter;
     usb_inter = to_usb_interface(dev); 
     struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
+    return usb_message_rescan_status(usb_dev);
+}
 
-    if( usb_message_rescan_status(usb_dev) == 1){
-        pr_info("Rescan done\n");
-    }else{
-        pr_info("Rescan not done\n");
-    }
+static ssize_t store_rescan(struct device *dev, struct device_attribute *attr,const char* buf,size_t count)
+{
+    struct usb_interface* usb_inter;
+    usb_inter = to_usb_interface(dev); 
+    struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
+    usb_message_rescan(usb_dev);
+    return count;
+}
+
+static ssize_t show_restart(struct device *dev, struct device_attribute *attr,char *buf)
+{
     return 0;
 }
 
-static ssize_t store_main(struct device *dev, struct device_attribute *attr,const char* buf,size_t count)
+static ssize_t store_restart(struct device *dev, struct device_attribute *attr,const char* buf,size_t count)
 {
     struct usb_interface* usb_inter;
     usb_inter = to_usb_interface(dev); 
     struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
-
-    if(buf[0] == '1')
-    {
-        // Rescan
-        deactivate_sysfs(usb_inter);
-        usb_message_rescan(usb_dev);
-        setup_sysfs(usb_dev,usb_inter);
-        return count;
-    }
-    if(buf[0] == '2')
-    {
-        // Restart
-        usb_message_reset(usb_dev);
-        return count;
-    }
+    usb_message_reset(usb_dev);
     return count;
 }
 
