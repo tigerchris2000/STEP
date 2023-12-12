@@ -12,7 +12,7 @@ data = open("data.txt", "w")
 
 tracker = 0
 
-for i in range(int(sys.argv[3])):
+for i in range(int(sys.argv[3]) * 2):
     file = open(file_location, "r")
     line = file.readline()
     time.sleep(0.5)
