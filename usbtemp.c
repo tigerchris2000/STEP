@@ -5,6 +5,7 @@
 #include <linux/slab.h> // For kmalloc and kfree
 #include <linux/device.h>
 
+
 #define USB_TEMP_VENDOR_ID 0x16c0
 #define USB_TEMP_PRODUCT_ID 0x05dc
 
@@ -112,15 +113,23 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
     for(int i = 2; i <= real_probes + 1; i++){
         // both need to be freed
         struct device_attribute* atr = kmalloc(sizeof(struct device_attribute), GFP_KERNEL) ;
-        char* name = kmalloc(7, GFP_KERNEL); //probe X\0 
+        char* number =  kmalloc(sizeof(char) * 16, GFP_KERNEL);
+        snprintf(number, 16, "%d",i-2);
+        pr_info("%s, %d\n",number,strlen(number));
+        int size = 6 + strlen(number);
+        char* name = kmalloc(size, GFP_KERNEL); //probe X\0 
         name[0] = 'p'; 
         name[1] = 'r'; 
         name[2] = 'o'; 
         name[3] = 'b'; 
         name[4] = 'e'; 
         // only works for values 0-9 need to implement function to generate string from integer
-        name[5] = (char)(i-2 + 0x30);  
-        name[6] = '\0'; 
+        for(int i = 0; i < strlen(number); i++)
+        {
+            name[5 + i] = number[i];
+        }
+        name[size-1] = '\0'; 
+        kfree(number);
         atr -> attr.name = name;
         atr -> attr.mode = S_IWUSR | S_IRUGO;
         atr -> show = &show; 
