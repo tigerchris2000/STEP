@@ -200,7 +200,7 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
         atr -> attr.mode = S_IWUSR | S_IRUGO;
         atr -> show = &show_restart;
         atr -> store = &store_restart;
-        error = device_create_file(&(interface->dev), atr);
+        int error = device_create_file(&(interface->dev), atr);
         if(error){
             pr_info("failed %d\n",error);
             kfree(atr);
@@ -375,6 +375,17 @@ static uint8_t usb_message_long(struct usb_device* dev, uint8_t possible_probes,
         }
         // Read from one probe
         else{
+            int found = 0;
+            for(int i = 0; i < possible_probes; i++){
+                if(data[i].flags == 0x01){
+                    if(found == type)
+                    {
+                        print_temp(data[type].temperature[0], data[type].temperature[1], storage);
+                    }else{
+                        found++;
+                    }
+                }
+            } 
             print_temp(data[type].temperature[0], data[type].temperature[1], storage);
         }
     }
