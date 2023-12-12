@@ -5,4 +5,5 @@
 --> str to int  
 --> int to str
 - Python script to read and graph the tempeture
-- functionality to rescan and restart( make it diffren files);
+- Check all kmalloc
+- better check for correct probe
