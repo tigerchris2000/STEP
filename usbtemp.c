@@ -396,22 +396,16 @@ static ssize_t show(struct device *dev, struct device_attribute *attr,char *buf)
     struct usb_interface* usb_inter;
     usb_inter = to_usb_interface(dev); //struct usb_device* usb_dev = usb_get_dev(usb_inter);
     struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
-    // In case of a rescan
-    if(usb_message_rescan_status(usb_dev) != 1){
-        pr_info("still scanning\n");
-        return 0;
-    }
-
     // Read probe pos from name
     int probe_pos = (int)attr -> attr.name[5] - 0x30; 
+    int probe_count = usb_message_short(usb_dev); 
     pr_info("value: %d",probe_pos);
-    usb_message_long(usb_dev, 8, probe_pos);
+    usb_message_long(usb_dev, probe_count, probe_pos);
     return 0;
 }
 
 static ssize_t store(struct device *dev, struct device_attribute *attr,const char* buf,size_t count)
 {
-    pr_info("stored\n");
     return count;
 }
 
