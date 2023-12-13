@@ -251,12 +251,15 @@ static void delete_old_probes(struct usb_interface* interface){
 
 static void add_new_probes(struct usb_device* usb_dev, struct usb_interface* interface)
 {
+    pr_info("call rescan status\n");
+    while(usb_message_rescan_status(usb_dev) != 1)
+    {
+        msleep(250);
+    }
     // Get all possiple probes
     pr_info("call short\n");
     uint8_t possible_probes = usb_message_short(usb_dev); 
     // Wait for rescan
-    pr_info("call rescan status\n");
-    while(usb_message_rescan_status(usb_dev) != 1);
     // Get the amount of real probes
     pr_info("call long\n");
     uint8_t real_probes = usb_message_long(usb_dev, possible_probes,-1, NULL); 
@@ -485,17 +488,17 @@ static int usb_message_rescan_status(struct usb_device* dev)
     }
 
     __u16 size = sizeof(*data);
-    int timeout = 1000;
+    int timeout = 10;
     int error = usb_control_msg(dev,usb_rcvctrlpipe(dev,0), request, 0xc0, value,index, data, size, timeout); 
     int ret = 0;
     if (error < 0)
     {
-        pr_info("error  %d \n", error);
+        pr_info("error rescan %d \n", error);
     }
     else
     {
        // pr_info("Status %d\n",data -> answer); 
-       if( data -> answer == 23){
+       if(data -> answer == 23){
             ret = 1;
        }
     }
@@ -549,10 +552,10 @@ static ssize_t store_rescan(struct device *dev, struct device_attribute *attr,co
     struct usb_interface* usb_inter;
     usb_inter = to_usb_interface(dev); 
     struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
-    pr_info("Start Resan \n");
-    usb_message_rescan(usb_dev);
     pr_info("Remove files \n");
     delete_old_probes(usb_inter);
+    pr_info("Start Resan \n");
+    usb_message_rescan(usb_dev);
     pr_info("Add files\n");
     add_new_probes(usb_dev, usb_inter);
     return count;
@@ -581,7 +584,6 @@ static int temp_probe(struct usb_interface* interface, const struct usb_device_i
 }
 static void temp_disconnect(struct usb_interface* interface)
 {
-    // device_remove_file(&(interface->dev), attr);
     deactivate_sysfs(interface);
 }
 static int temp_suspend(struct usb_interface *, struct pm_message)
