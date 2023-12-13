@@ -92,29 +92,23 @@ static void print_temp(uint8_t low, uint8_t high, struct temp* storage){
         val = val * (temperature*4);
         storage -> full = temperature;
         storage -> decimal = val;
-        pr_info("Temp:  %d %d \n", temperature,val);
 }
 
 static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interface){
     // Get all possiple probes
-    pr_info("call short\n");
     uint8_t possible_probes = usb_message_short(usb_dev); 
     // Wait for rescan
-    pr_info("call rescan\n");
     // usb_message_rescan(usb_dev);
-    pr_info("call rescan status\n");
     while(usb_message_rescan_status(usb_dev) != 1){
-        pr_info("waiting \n");
     }
     // Get the amount of real probes
-    pr_info("call long\n");
     uint8_t real_probes = usb_message_long(usb_dev, possible_probes,-1, NULL); 
     // Generate file for every real probe
-    pr_info("make files: wiht %d probes\n",real_probes);
+    pr_info("make files: with %d probes\n",real_probes);
     // Setup data for usb interface
     struct usb_interface_data* data = kmalloc(sizeof(struct usb_interface_data), GFP_KERNEL);
     if(data == NULL){
-        pr_info("Error kmalloc");
+        pr_err("Error kmalloc");
         return;
     }
     data -> probe_count = real_probes;
@@ -124,23 +118,22 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
         // both need to be freed
         struct device_attribute* atr = kmalloc(sizeof(struct device_attribute), GFP_KERNEL) ;
         if(atr == NULL){
-            pr_info("Error kmalloc");
+            pr_err("Error kmalloc");
             continue;
         }
         char* number =  kmalloc(sizeof(char) * 16, GFP_KERNEL);
         if(number == NULL){
             kfree(atr);
-            pr_info("Error kmalloc");
+            pr_err("Error kmalloc");
             continue;
         }
         snprintf(number, 16, "%d",i-2);
-        pr_info("%s, %d\n",number,strlen(number));
         int size = 6 + strlen(number);
         char* name = kmalloc(size, GFP_KERNEL); //probe X\0 
         if(name == NULL){
             kfree(atr);
             kfree(number);
-            pr_info("Error kmalloc");
+            pr_err("Error kmalloc");
             continue;
         }
         name[0] = 'p'; 
@@ -161,12 +154,12 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
         atr -> store = &store; 
         int error = device_create_file(&(interface->dev), atr);
         if(error){
-            pr_info("failed %d\n",error);
+            pr_err("failed %d\n",error);
             kfree(name);
             kfree(atr);
             data -> device_attributes[i] = NULL;
         }else{
-            pr_info("succsess %s\n",name);
+            pr_info("Filename:  %s\n",name);
             data -> device_attributes[i] = atr;
         }
     }
@@ -174,7 +167,7 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
     struct device_attribute* atr = kmalloc(sizeof(struct device_attribute), GFP_KERNEL);
     if(atr == NULL)
     {
-        pr_info("Error kmalloc");
+        pr_err("Error kmalloc");
     }else{
         atr -> attr.name = "temp_rescan";
         atr -> attr.mode = S_IWUSR | S_IRUGO;
@@ -182,7 +175,7 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
         atr -> store = &store_rescan;
         int error = device_create_file(&(interface->dev), atr);
         if(error){
-            pr_info("failed %d\n",error);
+            pr_err("failed %d\n",error);
             kfree(atr);
             data -> device_attributes[0] = NULL;
         }else{
@@ -194,7 +187,7 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
     atr = kmalloc(sizeof(struct device_attribute), GFP_KERNEL);
     if(atr == NULL)
     {
-        pr_info("Error kmalloc");
+        pr_err("Error kmalloc");
     }else{
         atr -> attr.name = "temp_restart";
         atr -> attr.mode = S_IWUSR | S_IRUGO;
@@ -202,7 +195,7 @@ static void setup_sysfs(struct usb_device* usb_dev, struct usb_interface* interf
         atr -> store = &store_restart;
         int error = device_create_file(&(interface->dev), atr);
         if(error){
-            pr_info("failed %d\n",error);
+            pr_err("failed %d\n",error);
             kfree(atr);
             data -> device_attributes[1] = NULL;
         }else{
@@ -251,15 +244,15 @@ static void delete_old_probes(struct usb_interface* interface){
 
 static void add_new_probes(struct usb_device* usb_dev, struct usb_interface* interface)
 {
-    pr_info("call rescan status\n");
+    // Wait for rescan
     while(usb_message_rescan_status(usb_dev) != 1)
     {
+        // wait for 0.25s to not overwhelm the microprocessor
         msleep(250);
     }
     // Get all possiple probes
     pr_info("call short\n");
     uint8_t possible_probes = usb_message_short(usb_dev); 
-    // Wait for rescan
     // Get the amount of real probes
     pr_info("call long\n");
     uint8_t real_probes = usb_message_long(usb_dev, possible_probes,-1, NULL); 
@@ -269,14 +262,14 @@ static void add_new_probes(struct usb_device* usb_dev, struct usb_interface* int
     struct usb_interface_data* data = kmalloc(sizeof(struct usb_interface_data), GFP_KERNEL);
     if(data == NULL)
     {
-        pr_info("Error kmalloc");
+        pr_err("Error kmalloc");
         return;
     }
     data -> probe_count = real_probes;
     data -> device_attributes = kmalloc(sizeof(struct device_attribute*)*(real_probes+2), GFP_KERNEL);
     if(data -> device_attributes == NULL)
     {
-        pr_info("Error kmalloc");
+        pr_err("Error kmalloc");
         return;
     }
     // Generate file for the general USB device
@@ -284,23 +277,22 @@ static void add_new_probes(struct usb_device* usb_dev, struct usb_interface* int
         // both need to be freed
         struct device_attribute* atr = kmalloc(sizeof(struct device_attribute), GFP_KERNEL) ;
         if(atr == NULL){
-            pr_info("Error kmalloc");
+            pr_err("Error kmalloc");
             continue;
         }
         char* number =  kmalloc(sizeof(char) * 16, GFP_KERNEL);
         if(number == NULL){
             kfree(atr);
-            pr_info("Error kmalloc");
+            pr_err("Error kmalloc");
             continue;
         }
         snprintf(number, 16, "%d",i-2);
-        pr_info("%s, %d\n",number,strlen(number));
         int size = 6 + strlen(number);
         char* name = kmalloc(size, GFP_KERNEL); //probe X\0 
         if(name == NULL){
             kfree(atr);
             kfree(number);
-            pr_info("Error kmalloc");
+            pr_err("Error kmalloc");
             continue;
         }
         name[0] = 'p'; 
@@ -321,12 +313,12 @@ static void add_new_probes(struct usb_device* usb_dev, struct usb_interface* int
         atr -> store = &store; 
         int error = device_create_file(&(interface->dev), atr);
         if(error){
-            pr_info("failed %d\n",error);
+            pr_err("failed %d\n",error);
             kfree(name);
             kfree(atr);
             data -> device_attributes[i] = NULL;
         }else{
-            pr_info("succsess %s\n",name);
+            pr_info("File created: %s\n",name);
             data -> device_attributes[i] = atr;
         }
     }
@@ -357,10 +349,9 @@ static uint8_t usb_message_long(struct usb_device* dev, uint8_t possible_probes,
     int timeout = 1000;
     int error = usb_control_msg(dev,usb_rcvctrlpipe(dev,0), request, 0xc0, value,index, data, size, timeout);
     uint8_t count = -1;
-    pr_info("value %d, size: %d \n",error,size);
     if(error < 0)
     {
-        pr_info("error %d \n",error);
+        pr_err("error %d \n",error);
     }
     else
     {
@@ -403,7 +394,7 @@ static uint8_t usb_message_short(struct usb_device* dev)
     __u16 index = 0;
     struct short_status* data = kmalloc(sizeof(struct short_status), GFP_KERNEL);
     if(data == NULL){
-        pr_info("Error kmalloc");
+        pr_err("Error kmalloc");
         return -1;
     }
     __u16 size = sizeof(*data);
@@ -418,7 +409,6 @@ static uint8_t usb_message_short(struct usb_device* dev)
     }
     else
     {
-       pr_info("Probe count %d\n",data -> supported_probes); 
        probe_count = data -> supported_probes;
     }
     kfree(data);
@@ -432,7 +422,7 @@ static void usb_message_reset(struct usb_device* dev)
     __u16 index = 0;
     struct short_status* data = kmalloc(8, GFP_KERNEL);
     if(data == NULL){
-        pr_info("Error kmalloc");
+        pr_err("Error kmalloc");
         return;
     }
 
@@ -441,7 +431,7 @@ static void usb_message_reset(struct usb_device* dev)
     int error = usb_control_msg(dev,usb_rcvctrlpipe(dev,0), request, 0xc0, value,index, data, size, timeout); 
     if (error < 0)
     {
-        pr_info("error %d\n",error);
+        pr_err("error %d\n",error);
     }
 
     kfree(data);
@@ -456,7 +446,7 @@ static void usb_message_rescan(struct usb_device* dev)
     __u16 index = 0;
     struct rescan_reply* data = kmalloc(sizeof(struct rescan_reply), GFP_KERNEL);
     if(data == NULL){
-        pr_info("Error kmalloc");
+        pr_err("Error kmalloc");
         return;
     }
 
@@ -465,7 +455,7 @@ static void usb_message_rescan(struct usb_device* dev)
     int error = usb_control_msg(dev,usb_rcvctrlpipe(dev,0), request, 0xc0, value,index, data, size, timeout); 
     if (error < 0)
     {
-        pr_info("error  %d \n", error);
+        pr_err("error  %d \n", error);
     }
     else
     {
@@ -483,7 +473,7 @@ static int usb_message_rescan_status(struct usb_device* dev)
     __u16 index = 0;
     struct rescan_reply* data = kmalloc(sizeof(struct rescan_reply), GFP_KERNEL);
     if(data == NULL){
-        pr_info("Error kmalloc");
+        pr_err("Error kmalloc");
         return -1;
     }
 
@@ -493,11 +483,10 @@ static int usb_message_rescan_status(struct usb_device* dev)
     int ret = 0;
     if (error < 0)
     {
-        pr_info("error rescan %d \n", error);
+        pr_err("error rescan %d \n", error);
     }
     else
     {
-       // pr_info("Status %d\n",data -> answer); 
        if(data -> answer == 23){
             ret = 1;
        }
@@ -511,16 +500,14 @@ static ssize_t show(struct device *dev, struct device_attribute *attr,char *buf)
     usb_inter = to_usb_interface(dev); //struct usb_device* usb_dev = usb_get_dev(usb_inter);
     struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
     // Read probe pos from name
-    //int probe_pos = (int)attr -> attr.name[5] - 0x30; 
     long probe_pos;
     int error = kstrtol( &(attr -> attr.name[5]), 10, &probe_pos);
     if(error)
     {
-        pr_info("kstrol error \n");
+        pr_err("kstrol error \n");
         return 0;
     }
     int probe_count = usb_message_short(usb_dev); 
-    pr_info("value: %d", (int)probe_pos);
     struct temp t = {};
     usb_message_long(usb_dev, probe_count, probe_pos, &t);
     return sysfs_emit(buf,"%d.%d\n",t.full,t.decimal);
@@ -552,11 +539,11 @@ static ssize_t store_rescan(struct device *dev, struct device_attribute *attr,co
     struct usb_interface* usb_inter;
     usb_inter = to_usb_interface(dev); 
     struct usb_device* usb_dev = interface_to_usbdev(usb_inter);
-    pr_info("Remove files \n");
+
     delete_old_probes(usb_inter);
-    pr_info("Start Resan \n");
+
     usb_message_rescan(usb_dev);
-    pr_info("Add files\n");
+
     add_new_probes(usb_dev, usb_inter);
     return count;
 }
